@@ -96,18 +96,7 @@ async def listen() -> None:
             await asyncio.sleep(RECONNECT_SECONDS)
 
 
-@asynccontextmanager
-async def lifespan(_server: FastMCP) -> AsyncIterator[None]:
-    task = asyncio.create_task(listen())
-    try:
-        yield
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-
-
-mcp = FastMCP("mqtt-bridge", lifespan=lifespan, host=MCP_HOST, port=MCP_PORT)
+mcp = FastMCP("mqtt-bridge", host=MCP_HOST, port=MCP_PORT)
 
 
 @mcp.tool()
@@ -198,5 +187,33 @@ def bridge_status() -> str:
     )
 
 
+def build_app():
+    """Build the ASGI app and start the subscriber at the process-level lifespan.
+
+    FastMCP's own `lifespan` runs per client session under streamable HTTP, so a
+    task started there dies when the client disconnects. The Starlette app's
+    lifespan runs once at process startup, which is where a persistent
+    background subscriber belongs.
+    """
+    app = mcp.streamable_http_app()
+    base_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(app) -> AsyncIterator[None]:
+        task = asyncio.create_task(listen())
+        try:
+            async with base_lifespan(app):
+                yield
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    app.router.lifespan_context = lifespan
+    return app
+
+
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    import uvicorn
+
+    uvicorn.run(build_app(), host=MCP_HOST, port=MCP_PORT)
