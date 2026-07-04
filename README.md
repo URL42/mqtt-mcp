@@ -82,10 +82,24 @@ npx @modelcontextprotocol/inspector
 
 ## Connecting from n8n
 
-Add an AI Agent node, attach an **MCP Client Tool**, and set the endpoint to
-`http://<host>:8000/mcp` with transport "HTTP Streamable" (n8n 1.94 or newer;
-older versions only speak SSE, in which case run the server with
-`transport="sse"` in `server.py` and point n8n at `http://<host>:8000/sse`).
+Add an AI Agent node and attach an **MCP Client Tool** pointed at
+`http://<host>:8000/mcp` (or your published `MCP_HOST_PORT`).
+
+**Set the transport to "HTTP Streamable".** This server speaks streamable HTTP
+only, not SSE. If the node is left on the SSE transport (the default in some
+versions), the connection fails with `SSE error: Non-200 status code (404)`
+because there is no `/sse` endpoint. Switching the transport to HTTP Streamable
+fixes it. Verified on n8n 2.28.6.
+
+Note that n8n and this bridge usually run as separate Docker stacks on the same
+host, so n8n reaches the bridge over the host, not by container name: use the
+host's LAN IP (e.g. `http://192.168.1.50:8075/mcp`), not `http://mqtt-mcp:8000`.
+
+A ready-to-import example workflow (Chat Trigger, AI Agent, Ollama model, MCP
+client) is in [`examples/n8n-aircube-agent.json`](examples/n8n-aircube-agent.json).
+Import it, then set two things: the MCP endpoint URL (your host LAN IP + port)
+and the Ollama model — which must support tool calling (e.g. `llama3.1`,
+`qwen2.5`), or the agent will chat without ever invoking the tools.
 
 ## Configuration
 

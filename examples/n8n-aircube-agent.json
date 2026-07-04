@@ -1,0 +1,71 @@
+{
+  "name": "AirCube MCP Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "webhookId": "a1b2c3d4-0001-4000-8000-0000000000aa"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a home environment assistant with access to live MQTT sensor data through MCP tools.\n\nTools:\n- list_topics(prefix): discover topics. Use prefix 'sensors/aircube/' to see the air quality sensor.\n- read_topic(topic): read the latest value of one exact topic.\n- bridge_status(): check the broker connection.\n\nThe air quality sensor publishes these topics with plain-number payloads:\n- sensors/aircube/co2 (ppm)\n- sensors/aircube/temperature (degrees Celsius)\n- sensors/aircube/humidity (percent)\n\nWhen asked about air quality, temperature, CO2, or humidity, call read_topic for the exact topic and report the value with its unit. Temperature is in Celsius; convert to Fahrenheit only if asked. If a reading is more than a minute old (check age_seconds), mention it may be stale."
+        }
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "model": "llama3.1:8b",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [140, 240],
+      "credentials": {
+        "ollamaApi": {
+          "id": "REPLACE_WITH_YOUR_OLLAMA_CREDENTIAL_ID",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "serverTransport": "httpStreamable",
+        "endpointUrl": "http://REPLACE_WITH_BOSSBITCH_LAN_IP:8075/mcp",
+        "authentication": "none",
+        "toolsToInclude": "all"
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "MCP Client (mqtt-mcp)",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1,
+      "position": [400, 240]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "MCP Client (mqtt-mcp)": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}
