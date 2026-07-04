@@ -46,6 +46,19 @@ Mosquitto listens on 1883 (devices connect there), the MCP endpoint is
 `http://<host>:8000/mcp`. Neither has TLS and the MCP endpoint has no auth,
 so keep both LAN-only.
 
+If 8000 is already taken on the host, set `MCP_HOST_PORT` in `.env` (e.g.
+`MCP_HOST_PORT=8090`) instead of editing `docker-compose.yml` — the
+container still listens on 8000 internally, only the published port changes.
+
+If `ufw` is enabled on the host, open both ports (adjust for `MCP_HOST_PORT`
+if you set one):
+
+```sh
+sudo ufw allow 1883/tcp comment 'mosquitto mqtt'
+sudo ufw allow 8000/tcp comment 'mqtt-mcp streamable http'
+sudo ufw status
+```
+
 ## Local development (Mac)
 
 ```sh

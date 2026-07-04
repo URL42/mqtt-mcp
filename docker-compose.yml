@@ -14,7 +14,7 @@ services:
     depends_on:
       - mosquitto
     ports:
-      - "8000:8000"
+      - "${MCP_HOST_PORT:-8000}:8000"
     environment:
       MQTT_HOST: mosquitto
       MQTT_USERNAME: ${MQTT_USERNAME}
