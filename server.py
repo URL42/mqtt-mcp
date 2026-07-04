@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import time
 from collections.abc import AsyncIterator
@@ -18,6 +19,9 @@ from dataclasses import dataclass
 
 import aiomqtt
 from mcp.server.fastmcp import FastMCP
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+log = logging.getLogger("mqtt-bridge")
 
 MQTT_HOST = os.environ.get("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
@@ -65,10 +69,12 @@ async def listen() -> None:
     """
     while True:
         try:
+            log.info("connecting to broker %s:%s", MQTT_HOST, MQTT_PORT)
             async with _mqtt_client("mqtt-mcp-listener") as client:
                 await client.subscribe("#")
                 broker_status["connected"] = True
                 broker_status["last_error"] = None
+                log.info("subscribed to '#', waiting for messages")
                 async for message in client.messages:
                     topic = str(message.topic)
                     previous = cache.get(topic)
@@ -77,9 +83,16 @@ async def listen() -> None:
                         received_at=time.time(),
                         count=previous.count + 1 if previous else 1,
                     )
+                    log.info("cached %s (%d topics total)", topic, len(cache))
+            log.warning("message stream ended cleanly; reconnecting")
         except aiomqtt.MqttError as exc:
             broker_status["connected"] = False
             broker_status["last_error"] = str(exc)
+            log.warning("broker error: %s; reconnecting in %ss", exc, RECONNECT_SECONDS)
+            await asyncio.sleep(RECONNECT_SECONDS)
+        except Exception:
+            broker_status["connected"] = False
+            log.exception("unexpected error in listener; reconnecting in %ss", RECONNECT_SECONDS)
             await asyncio.sleep(RECONNECT_SECONDS)
 
 
